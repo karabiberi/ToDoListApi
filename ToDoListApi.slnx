@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="Business/Business.csproj" />
+  <Project Path="Core/Core.csproj" />
+  <Project Path="DAL/DAL.csproj" />
+  <Project Path="Entity/Entity.csproj" />
+  <Project Path="ToDoListApi/ToDoListApi.csproj" />
+</Solution>

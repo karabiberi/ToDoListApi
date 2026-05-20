@@ -1,0 +1,29 @@
+﻿using Swashbuckle.AspNetCore.SwaggerGen;
+
+namespace ToDoListApi.Extensions
+{
+    public static class SwaggerExtensions
+    {
+        public static void AddJwtBearerSecurity(this SwaggerGenOptions options)
+        {
+            var jwtSecurityScheme = new Dictionary<string, object>
+            {
+                { "type", "http" },
+                { "scheme", "bearer" },
+                { "bearerFormat", "JWT" },
+                { "description", "JWT Authorization header using the Bearer scheme." },
+                { "name", "Authorization" },
+                { "in", "header" }
+            };
+
+            options.AddSecurityDefinition("Bearer", jwtSecurityScheme);
+
+            var securityRequirement = new Dictionary<string, IEnumerable<string>>
+            {
+                { "Bearer", new string[] { } }
+            };
+
+            options.AddSecurityRequirement(securityRequirement);
+        }
+    }
+}

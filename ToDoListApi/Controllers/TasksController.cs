@@ -1,0 +1,83 @@
+﻿using AutoMapper;
+using Business.DTOs.TaskDto;
+using Business.Services.Abstract;
+using Entity.TaskItemEntity;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace ToDoListApi.Controllers;
+
+[Route("api/[controller]")]
+[ApiController]
+[Authorize]
+public class TasksController : ControllerBase
+{
+    private readonly ITaskService _taskService;
+
+    private readonly IMapper _mapper;
+
+    public TasksController(
+        ITaskService taskService,
+        IMapper mapper)
+    {
+        _taskService = taskService;
+        _mapper = mapper;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetAll([FromQuery] int? page, [FromQuery] int? pageSize)
+    {
+        var values = await _taskService.GetAllTasksAsync();
+
+        var result = _mapper.Map<List<ResultTaskDto>>(values);
+
+        return Ok(result);
+    }
+
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetById([FromRoute] int id)
+    {
+        var value = await _taskService.GetTaskByIdAsync(id);
+
+        if (value == null)
+        {
+            return NotFound();
+        }
+
+        var result = _mapper.Map<ResultTaskDto>(value);
+
+        return Ok(result);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] CreateTaskDto dto)
+    {
+        var value = _mapper.Map<TaskItem>(dto);
+
+        value.CreatedDate = DateTime.Now;
+
+        value.IsCompleted = false;
+
+        await _taskService.CreateTaskAsync(value);
+
+        return Ok("Task created");
+    }
+
+    [HttpPut]
+    public async Task<IActionResult> Update([FromBody] UpdateTaskDto dto)
+    {
+        var value = _mapper.Map<TaskItem>(dto);
+
+        await _taskService.UpdateTaskAsync(value);
+
+        return Ok("Task updated");
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        await _taskService.DeleteTaskAsync(id);
+
+        return Ok("Task deleted");
+    }
+}

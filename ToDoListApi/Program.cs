@@ -1,0 +1,130 @@
+using AutoMapper;
+using Business.Mappings;
+using Business.Services.Abstract;
+using Business.Services.Concrete;
+using DAL.DBContext;
+using DAL.Repositories.Abstract;
+using DAL.Repositories.Concrete;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using ToDoListApi.Business.Auth;
+using System.Text;
+using Entity.UserEntity;
+public partial class Program
+{
+    private static void Main(string[] args)
+    {
+        var builder = WebApplication.CreateBuilder(args);
+
+        // Add services to the container.
+        builder.Services.AddDbContext<AppDbContext>(options =>
+        {
+            options.UseSqlServer(
+                builder.Configuration.GetConnectionString("Default"));
+        });
+        builder.Services.AddAutoMapper(cfg =>
+        {
+            cfg.AddProfile<MappingProfile>();
+        }, typeof(Program));
+
+
+        builder.Services.AddIdentity<User, IdentityRole<Guid>>(options =>
+        {
+            options.Password.RequiredLength = 6;
+            options.Password.RequireNonAlphanumeric = false;
+            options.Password.RequireDigit = true;
+        })
+        .AddEntityFrameworkStores<AppDbContext>()
+        .AddDefaultTokenProviders();
+
+        var jwtSettings = builder.Configuration.GetSection("TokenOptions");
+
+        builder.Services.AddAuthentication(options =>
+        {
+            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+        })
+        .AddJwtBearer(options =>
+        {
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                ValidIssuer = jwtSettings.GetSection("Issuer").Value ?? throw new InvalidOperationException("JWT Issuer is not configured"),
+                ValidAudience = jwtSettings.GetSection("Audience").Value ?? throw new InvalidOperationException("JWT Audience is not configured"),
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.GetSection("SecurityKey").Value ?? throw new InvalidOperationException("JWT SecurityKey is not configured"))),
+                ClockSkew = TimeSpan.Zero
+            };
+        });
+
+
+        builder.Services.AddScoped<ITaskRepository, TaskRepository>();
+        builder.Services.AddScoped<ITaskService, TaskService>();
+        builder.Services.AddScoped<IAuthService, AuthService>();
+
+        builder.Services.AddControllers();
+        // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+
+        builder.Services.AddEndpointsApiExplorer();
+        builder.Services.AddSwaggerGen(options =>
+        {
+            // Define security scheme for JWT
+            var securityScheme = new Microsoft.OpenApi.Models.OpenApiSecurityScheme()
+            {
+                Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+                Description = "JWT Authorization header using the Bearer scheme.",
+                Scheme = "bearer",
+                BearerFormat = "JWT",
+                In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+                Name = "Authorization",
+            };
+
+            options.AddSecurityDefinition("Bearer", securityScheme);
+
+            var securityRequirement = new Microsoft.OpenApi.Models.OpenApiSecurityRequirement()
+            {
+                {
+                    new Microsoft.OpenApi.Models.OpenApiSecurityScheme()
+                    {
+                        Reference = new Microsoft.OpenApi.Models.OpenApiReference()
+                        {
+                            Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                            Id = "Bearer"
+                        }
+                    },
+                    new List<string>()
+                }
+            };
+
+            options.AddSecurityRequirement(securityRequirement);
+        });
+
+        var app = builder.Build();
+
+        // Configure the HTTP request pipeline.
+        if (app.Environment.IsDevelopment())
+        {
+            app.UseSwagger();
+            app.UseSwaggerUI(options =>
+            {
+                options.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.None);
+                options.SwaggerEndpoint("/swagger/v1/swagger.json", "ToDoList API V1");
+                options.RoutePrefix = string.Empty;
+            });
+     
+        }
+
+        app.UseHttpsRedirection();
+
+        app.UseAuthentication();
+        app.UseAuthorization();
+
+        app.MapControllers();
+
+        app.Run();
+    }
+}
